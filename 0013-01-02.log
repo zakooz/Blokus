@@ -1,0 +1,39 @@
+Try to open /dev/pts/2: Success!
+timeout!
+Timeout while waiting team code on serial port 0!
+Try to open /dev/pts/2: Success!
+timeout!
+Timeout while waiting team code on serial port 0!
+Try to open /dev/pts/3: Success!
+Team code on serial 0: 01
+>> 01 * vs 02  
+----------------- Available Tiles -----------------
+          a b c d e f g h i j k l m n o p q r s t u
+Player 1: 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+Player 2: 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+---------------------- Board ----------------------
+   0 1 2 3 4 5 6 7 8 9 a b c d e f
+ 0 + + + + + + + + + + + + + + + +
+ 1 +                             +
+ 2 +                             +
+ 3 +                             +
+ 4 +                             +
+ 5 +                             +
+ 6 +                             +
+ 7 +                             +
+ 8 +                             +
+ 9 +                             +
+ a +                             +
+ b +                             +
+ c +                             +
+ d +                             +
+ e +                             +
+ f + + + + + + + + + + + + + + + +
+---------------------------------------------------
+turn 0: must cover (5,5)
+no prev code
+TURN+1=1
+serial prompt string: 25 (2 bytes)
+(got from serial 0: tttt)
+Invalid code on serial port.
+** Player 1 lost the game by violation (code -11). Tiles: 89 / 89, Score: -89 / -89

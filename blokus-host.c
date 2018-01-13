@@ -59,7 +59,7 @@
 
 const int serial_devs = 6;
 // const char* serial_dev[6] = { "/tmp/fifo0", "/tmp/fifo1", "/tmp/fifo2", "/tmp/fifo3", "/tmp/fifo4", "/tmp/fifo5" };
-const char* serial_dev[6] = { "/dev/cuaU0", "/dev/cuaU1", "/dev/cuaU2", "/dev/cuaU3", "/dev/com1", "/dev/com2" };
+const char* serial_dev[6] = { "/dev/pts/2", "/dev/pts/2", "/dev/pts/3", "/dev/cuaU3", "/dev/com1", "/dev/com2" };
 
 int serial_fd[2];
 struct termios oldtio[2], tio[2];

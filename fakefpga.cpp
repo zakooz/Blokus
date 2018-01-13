@@ -1,8 +1,12 @@
 /**
- * Serial port example.
+ * Serial port emulation layer
  * Compile with: g++ main.cpp -lpthread -o main
- * 
+ *
+ * Based on https://github.com/cymait/virtual-serial-port-example 
  * Cymait http://cymait.com
+ *
+ * Modified by Tiago Campos
+ *
  **/
 
 #include <iostream>
@@ -15,26 +19,74 @@
 #include <termios.h>
 #include <unistd.h>
 
+using namespace std;
+
 #define BUFFER_SIZE 128
-#define BAUDRATE    B9600
+#define BAUDRATE    B115200
 
 void usage(char* cmd) {
     std::cerr << "usage: " << cmd << " slave|master [device, only in slave mode]" << std::endl;
     exit(1);
 }
 
+/* Adapted from SINF */
+bool readline(int fd, string &line) 
+{
+    char buffer[5]; // 4 characters + '\0'
+    line = "";
+
+    int n = read(fd, buffer, 1024);
+    if (n == 0) return false;
+    buffer[n] = 0; // put a \0 in the end of the buffer
+    line += buffer; // add the read text to the string
+
+    return true;  
+}
+
+/* Adapted from SINF */
+bool writeline(int fd, const string &line) 
+{
+    write(fd, line.c_str(), line.length());
+    cout << "Sent: " << line << endl;
+    return true;
+}
+
 void* reader_thread(void* args) {
     int fd = *(int*)args;
-    char inputbyte;
-    while (read(fd, &inputbyte, 1) == 1) {
-        std::cout << inputbyte;
+
+    string input;
+    while (readline(fd, input) >= 1) {
+        std::cout << "Received: " << input << endl;
         std::cout.flush();
+
+        /* sample of how to handle communication */
+        /* if asked to play on (5,5) (first round), play block 'a' without rotation */
+        if(!input.compare("25")) {
+            writeline(fd, "55t0");
+        }
     }
 
+    cout << "Reader thread shutting down..." << endl;
     return 0;
 }
 
+/* read_byte is only used for the negotiation stage */
+char read_byte(int fd) { 
+    char inputbyte;
+
+    // locks the application while waiting
+    read(fd, &inputbyte, 1); 
+    
+    // write the char to the console
+    cout << "Received: " << string(1, inputbyte) << " (" << (int) inputbyte << ")" << endl;
+    std::cout.flush();
+
+    return inputbyte;
+}
+
 int main(int argc, char** argv) {
+    cout << "----- FakeFPGA ------" << endl;
+
     if (argc < 2) usage(argv[0]);
 
     int fd = 0;
@@ -60,7 +112,7 @@ int main(int argc, char** argv) {
         unlockpt(fd);
 
         char* pts_name = ptsname(fd);
-        std::cerr << "ptsname: " << pts_name << std::endl;
+        std::cerr << "Connected to serial port at: " << pts_name << std::endl;
     } else {
         usage(argv[1]);
     }
@@ -84,7 +136,20 @@ int main(int argc, char** argv) {
     cfsetospeed(&newtio, BAUDRATE);
     tcsetattr(fd, TCSANOW, &newtio);
 
-    /* start reader thread */
+    /* negociation stage */
+    if(mode == "master") {
+        /* wait for blokus-host to ask our team code */
+        if(read_byte(fd) == '0') {
+            cout << "Our team code is being requested..." << endl;
+
+            /* team code is of type 1XX [101-199] */
+            string team_code = "101";
+
+            /* send the team code */
+            writeline(fd, team_code);
+        }
+    }
+
     pthread_t thread;
     pthread_create(&thread, 0, reader_thread, (void*)&fd);
 
