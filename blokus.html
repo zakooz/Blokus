@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <title>Blokus Duo Competition</title>
+
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js" type="text/javascript"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.1/jquery-ui.min.js" type="text/javascript"></script>
+    <link href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.1/themes/blitzer/jquery-ui.css" type="text/css" rel="stylesheet">
+    
+    <script type="text/javascript">
+var tile_size = [ 1, 2, 3, 3, 4, 4, 4, 4, 4, 
+                  5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5 ];
+var turn = 0;
+var last_total = [ {turn: 0, total: 0}, {turn: 0, total: 0} ];
+var ctx;
+
+var graph = { left: 30,
+              height: 320, 
+              width: 400,
+              x_scale: 8,
+              y_scale: 3.2 };
+
+var team_name = [];
+
+var teams;
+
+var team_ids = {
+     '01': 'Console player 1',
+     '02': 'Console player 2',
+
+     BD:   'Shizuoka FPGA Blokus Duo Solver I',
+     BE:   'Shizuoka FPGA Blokus Duo Solver II',
+     PH:   'Pure Hardware',
+     SD:   'SAKURA-Duo',
+     KU:   'Kuma2Duo',
+     UT:   'UT_PatOMat',
+     UZ:   'University of Zaragoza',
+     ER:   'ERTL',
+     RA:   'Reconfigurable Application Diffusion Committee',
+     HF:   'HLAB',
+     PA:   'PARMA',
+     TJ:   'TJUplayer',
+     RB:   'BLUE STORM',
+     TO:   'ToK-AI'
+  };
+
+ function get_next(){
+   $.ajax({
+     type: "GET",
+     url: "/", 
+     cache: false,
+     success: function(data){
+       got_one(data);
+     },
+     data: "",
+     error: function(XMLHttpRequest, textStatus, errorThrown){
+       $('BODY').append('<pre>AJAX Error: \n' +
+		       'Status: ' + XMLHttpRequest.status + '\n' +
+		       'StatusText: ' + XMLHttpRequest.statusText + '\n' +
+		       'Response: ' + XMLHttpRequest.responseText +
+		       '</pre>');
+     }
+   });
+ }
+
+ function new_game(){  // make another game
+   // all tiles are unused
+   for(var i=0; i<42; i++)
+      $('#tiles1 td, #tiles2 td').eq(i).addClass('occupied');
+
+   $('#tiles *').removeClass('p1tiles');
+   $('#tiles *').removeClass('p2tiles');
+   $('#tiles *').removeClass('winner');
+
+   $('p#violation_desc').text('');
+
+   // clear the board
+   for(var y=0; y<14; y++){
+     for(var x=0; x<14; x++){
+       $('#board tr:eq(' + (y+1) + ') td').eq(x).removeClass('p1');
+       $('#board tr:eq(' + (y+1) + ') td').eq(x).removeClass('p2');
+     }
+   }
+
+   // graph
+   init_graph();
+
+   // texts
+   $('#result').text('');
+   $('#p1tiles').text('Player 1');
+   $('#p2tiles').text('Player 2');
+
+   // others
+   turn = 0;
+   last_total = [ {turn: 0, total: 0}, {turn: 0, total: 0} ];
+   $('button').css("display","none");
+
+   // Go!
+   $.ajax({url: "/", 
+	   cache: false,
+	   success: function(data){ get_next(); },
+	   error: function(){ $('button').css("display","inline"); } });
+ }
+
+ function got_one(data){
+   $('pre').text(data);
+
+   var cells = data.split(/\s+/g);
+   if(cells[0] == 'M'){
+     for(var i=0; i<21; i++){
+       if (cells[1+i] == 0)
+	 $('.p1tiles td').eq(i).removeClass('occupied');
+       else		       
+	 $('.p1tiles td').eq(i).addClass('occupied');
+     }
+
+     for(var i=21; i<42; i++){
+       if (cells[1+i] == 0)
+	 $('.p2tiles td').eq(i-21).removeClass('occupied');
+       else		       
+	 $('.p2tiles td').eq(i-21).addClass('occupied');
+     }
+
+
+     for(var p=0; p<2; p++){
+       var total = 0;
+       for(var i=0; i<21; i++)
+	 total += cells[1+(21*p)+i] * tile_size[i];
+
+       $('.p'+(p+1)+'tiles th:eq(1)').text(total);
+       $('.p'+(p+1)+'tiles th:eq(2)').text(-total);
+
+       if (last_total[p].total != total){
+	 var last_x = last_total[p].turn * graph.x_scale + graph.left;
+	 var last_y = graph.height - last_total[p].total * graph.y_scale;
+	 var x = turn * graph.x_scale + graph.left;
+	 var y = graph.height - total * graph.y_scale;
+
+	 ctx.lineWidth = 2;		
+	 ctx.strokeStyle = (p==0) ? 'rgb(255, 128, 128)' : 'rgb(128, 255, 128)';
+	 ctx.fillStyle = (p==0) ? 'rgb(255, 128, 128)' : 'rgb(128, 255, 128)';
+
+	 ctx.beginPath();   
+	 ctx.arc( x, y, 3, Math.PI*2, false);
+	 ctx.fill();
+
+	 if (last_total[p].total != 0){
+	   ctx.beginPath();
+	   ctx.moveTo(last_x, last_y);
+	   ctx.lineTo(x, y);
+	   ctx.stroke();
+	 }
+
+	 last_total[p].turn  = turn;
+	 last_total[p].total = total;
+       }
+     }
+
+     for(var y=0; y<14; y++){
+       for(var x=0; x<14; x++){
+	 switch (cells[43+14*y+x]){
+	   case '1':
+	     $('#board tr:eq(' + (y+1) + ') td').eq(x).addClass('p1');
+	     break;
+	   case '2':
+	     $('#board tr:eq(' + (y+1) + ') td').eq(x).addClass('p2');
+	     break;
+	 }
+       }
+     }
+   } else {
+     // not a move but start / termination message
+     if(cells[0] == '**'){
+ //      $('#result').css("display","block");
+
+       var result = data.substr(3);
+
+       // winner detection			 
+       var winner = 0;
+       if (/Player . won/.test(result))
+	 winner = (result.match(/Player (.) won/))[1];
+       else {
+         if (/Player . lost/.test(result))
+  	   winner = (((result.match(/Player (.) lost/))[1] == 2) ? 1 : 2);
+       }
+
+       if (winner==1)
+	 $('.p1tiles').addClass('winner');
+       else
+	 $('.p2tiles').addClass('winner');
+
+       // error code detection
+       if (/Player . lost the game by violation \(code/.test(result)){
+	 var violator = (result.match(/Player (.) lost/)[1]);
+
+	 var error_code = (result.match(/code (\-[0-9]+)/))[1];
+	 $('pre').text("[" + error_code + "]");
+	 var error_desc = "";
+
+	 switch (error_code){
+	   case  '-1': error_desc = "The tile has already used!"; break;
+	   case  '-2': error_desc = "The grid is already occupied!"; break;
+	   case  '-3': error_desc = "The tile shares an edge!"; break;
+	   case  '-4': error_desc = "Tile must share a vertex!"; break;
+	   case  '-5': error_desc = "Must cover the first grid!"; break;
+	   case  '-6': error_desc = "Must cover the first grid!"; break;
+	   case '-10': error_desc = "Timed out!"; break;
+	   case '-11': error_desc = "Received a broken code!"; break;
+	   case '-12': error_desc = "First move must not be a pass!"; break;
+	   default:  error_desc = "Unknown violation";
+	 }
+	 $('p#violation_desc').html(team_name[violator-1] + " violation: " + error_desc);
+       }
+
+
+       // final score detection
+       if (/Score: /.test(result)){
+	  var final_scores = (result.match(/Score: ([0-9\-]+) \/ ([0-9\-]+)/));
+
+	  $('.p1tiles th:eq(2)').text(final_scores[1]);
+	  $('.p2tiles th:eq(2)').text(final_scores[2]);
+       }
+
+       result = result.replace(/Player 1/, team_name[0]);
+       result = result.replace(/Player 2/, team_name[1]);
+
+       $('#result').html(result);
+
+       $('#past_games').append(teams + ': ' + result + '<br>');
+       $('button').css("display","inline");
+
+// for automatic replay
+       setTimeout( function() {
+	      new_game();
+       }, 1000);
+
+       return; // game is over
+     } else {
+       teams = data.substr(3);
+
+       var teams_split = [];
+       teams_split = teams.split(/\s+/);
+
+       // [0] [1] [2] [3]
+       // T1   *  vs  T2   
+       // T1   vs T2   *
+
+       team_name[0] = teams_split[0];
+       team_name[1] = teams_split[3];
+       if(teams_split[1] != '*') team_name[1] = teams_split[2];
+
+       // translate team ID
+       for (var j=0; j<2; j++) {
+	 for (var i in team_ids) {
+	   if (team_name[j].indexOf(i) != -1){
+	     team_name[j] = team_name[j].replace(i, team_ids[i]);
+	     break;
+	   }
+	 }
+       }
+
+       if(teams_split[1] == '*'){ // player 1 goes first
+	 team_name[0] = '<em>' + team_name[0] + '</em>';
+	 $('#tiles1').addClass('p1tiles');
+	 $('#tiles2').addClass('p2tiles');
+       } else {
+	 team_name[1] = '<em>' + team_name[1] + '</em>';
+	 $('#tiles1').addClass('p2tiles');
+	 $('#tiles2').addClass('p1tiles');
+       }
+
+       teams = team_name[0] + ' vs ' + team_name[1];
+
+       $('.p1tiles .p_name').html(team_name[0]);
+       $('.p2tiles .p_name').html(team_name[1]);
+     }
+   }
+
+   $('#result').text('Move #' + (turn - 1));
+
+   turn++;
+   get_next();
+ }
+
+ function init_graph(){
+   ctx.clearRect(0,0, $('canvas').width(), $('canvas').height());
+   ctx.lineWidth = 1;
+
+   // Axis
+   ctx.strokeStyle = 'rgb(160, 160, 160)';
+   ctx.beginPath();
+   ctx.moveTo(graph.left + 0.5,0);
+   ctx.lineTo(graph.left + 0.5, graph.height + 0.5);
+   ctx.lineTo(graph.left + 0.5 + graph.width, graph.height + 0.5);
+   ctx.stroke();
+
+   // Y 
+   ctx.textBaseline = 'middle';
+   ctx.textAlign = 'right';
+   for(var i=10; i<=90; i+=20){
+     var y = graph.height - graph.y_scale * i + 0.5;
+     ctx.strokeStyle = 'rgb(160, 160, 160)';
+     ctx.beginPath();
+     ctx.moveTo(graph.left + 0.5, y);
+     ctx.lineTo(graph.left + graph.width + 0.5, y);
+     ctx.stroke();
+
+     ctx.strokeStyle = 'rgb(0, 0, 0)';
+     ctx.strokeText(i, graph.left-5, y);
+   }
+
+   // X
+   ctx.textBaseline = 'top';
+   ctx.textAlign = 'center';
+   for(var i=10; i<=40; i+=10){
+     var x = graph.left + i*graph.x_scale + 0.5;
+     ctx.strokeStyle = 'rgb(160, 160, 160)';
+     ctx.beginPath();
+     ctx.moveTo(x, 0.5);
+     ctx.lineTo(x, graph.height + 0.5);
+     ctx.stroke();
+
+     ctx.strokeStyle = 'rgb(0, 0, 0)';
+     ctx.strokeText(i, x, graph.height+5);
+   }
+
+ }
+
+ $(function(){
+   // initialize
+   var canvas = $('canvas').get(0);
+   ctx = canvas.getContext('2d');
+
+   init_graph();
+
+   get_next();
+
+ });
+     </script>
+     <style type="text/css">
+       body { font-size: 12px; font-family: sans-serif; }
+
+       #container { 
+	    width: 900px; border: 1px dotted #aaa; 
+	    margin-left: auto; margin-right: auto; }
+
+       div#sec_board { width: 440px; float: left; }
+       div#log   { width: 450px; float: right; }
+       div#tiles { clear: both; }
+
+       h1, h2 { background: #55a; text-align: center; color: white;  clear: both; }
+       h1 { padding-top: 12px; padding-bottom: 12px; margin-top: 0px; }
+       h2 { padding-top: 4px; padding-bottom: 4px; }
+
+       table { border-collapse: collapse; }
+
+       table#tiles td { width: 20px; height: 20px; border: 1px solid #aaa; }
+       table#board td { width: 20px; height: 20px; border: 1px solid #aaa; }
+
+       #tiles1 th, #tiles2 th { font-size: 140%; text-align: right; padding-right: 5px; }
+
+       table, canvas { margin-left: auto; margin-right: auto; }
+
+       .p1, .p1tiles .occupied { background: #faa; } 
+       .p2, .p2tiles .occupied { background: #afa; } 
+
+       #violation_desc { font-size: 140%; color: red; text-align: center; 
+			 margin: 5px; height: 30px; }
+
+       #tiles .winner { color: red; font-weight: bold; }
+       #tiles .violator { color: red; }
+
+       #vs, #result { height: 30px; margin: 0px;
+		      font-size: 120%; text-align: center; }
+
+       button { float: right; display: none; }
+     </style>    
+
+   </head>
+   <body>
+
+     <div id="container">
+       <h1>Blokus Duo!</h1>
+
+       <p id="result"></p>
+       <p id="violation_desc">&nbsp;</p>
+
+       <div id="tiles" style="margin-bottom: 20px; ">
+ <!--  <h2>Tiles</h2> -->
+
+       <table id="tiles">
+	 <tr><th>
+	   <th>a<th>b<th>c<th>d<th>e<th>f<th>g<th>h<th>i<th>j 
+	   <th>k<th>l<th>m<th>n<th>o<th>p<th>q<th>r<th>s<th>t<th>u
+	   <th>Total <th> Score</tr>
+	 <tr id="tiles1"><th class="p_name">Player 1
+	     <td> <td> <td> <td> <td> <td> <td> <td> <td> <td> 
+	     <td> <td> <td> <td> <td> <td> <td> <td> <td> <td> <td> <th> <th></tr>
+	 <tr id="tiles2"><th class="p_name">Player 2
+	     <td> <td> <td> <td> <td> <td> <td> <td> <td> <td> 
+	     <td> <td> <td> <td> <td> <td> <td> <td> <td> <td> <td> <th> <th></tr>
+       </table>
+       </div>
+
+       <div id="sec_board">
+ <!--  <h2>Board</h2> -->
+
+       <table id="board">
+	 <tr><th> <th>1<th>2<th>3<th>4<th>5<th>6<th>7<th>8<th>9
+	   <th>a<th>b<th>c<th>d<th>e</tr>
+	 <tr><th>1<td><td><td><td><td><td><td><td><td><td><td><td><td><td></tr>
+	 <tr><th>2<td><td><td><td><td><td><td><td><td><td><td><td><td><td></tr>
+	 <tr><th>3<td><td><td><td><td><td><td><td><td><td><td><td><td><td></tr>
+	 <tr><th>4<td><td><td><td><td><td><td><td><td><td><td><td><td><td></tr>
+	 <tr><th>5<td><td><td><td><td><td><td><td><td><td><td><td><td><td></tr>
+	 <tr><th>6<td><td><td><td><td><td><td><td><td><td><td><td><td><td></tr>
+	 <tr><th>7<td><td><td><td><td><td><td><td><td><td><td><td><td><td></tr>
+	 <tr><th>8<td><td><td><td><td><td><td><td><td><td><td><td><td><td></tr>
+	 <tr><th>9<td><td><td><td><td><td><td><td><td><td><td><td><td><td></tr>
+	 <tr><th>a<td><td><td><td><td><td><td><td><td><td><td><td><td><td></tr>
+	 <tr><th>b<td><td><td><td><td><td><td><td><td><td><td><td><td><td></tr>
+	 <tr><th>c<td><td><td><td><td><td><td><td><td><td><td><td><td><td></tr>
+	 <tr><th>d<td><td><td><td><td><td><td><td><td><td><td><td><td><td></tr>
+	 <tr><th>e<td><td><td><td><td><td><td><td><td><td><td><td><td><td></tr>
+       </table>
+       </div>
+
+       <div id="log">
+ <!--  <h2>Game Log</h2> -->
+       <p style="text-align: center;">
+	 <canvas width="450" height="340"></canvas></p>
+       </div>
+
+       <h2>Past games</h2>
+       <button onclick="new_game();">New Game</button>
+       <div id="past_games"></div>
+
+       <h2>Debug...</h2>
+
+       <pre>
+       </pre>
+
+     </div>
+   </body>
+ </html>

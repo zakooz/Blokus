@@ -1,0 +1,2 @@
+mode.com com1 BAUD=115200 PARITY=n DATA=8 STOP=1
+mode.com com2 BAUD=115200 PARITY=n DATA=8 STOP=1
