@@ -24,6 +24,8 @@ using namespace std;
 #define BUFFER_SIZE 128
 #define BAUDRATE    B115200
 
+int board[14][14];
+
 void usage(char* cmd) {
     std::cerr << "usage: " << cmd << " slave|master [device, only in slave mode]" << std::endl;
     exit(1);
@@ -51,6 +53,18 @@ bool writeline(int fd, const string &line)
     return true;
 }
 
+string make_move(string input) {
+	if(!input.compare("25")) {
+		/* sample of how to handle communication */
+		/* if asked to play on (5,5) (first round), play block 't' with rotation 0 */
+		writeline(fd, "55t0");
+	} else if(!input.compare("2a")) {
+		writeline(fd, "aat0");
+	} else {
+		
+	}
+}
+
 void* reader_thread(void* args) {
     int fd = *(int*)args;
 
@@ -58,12 +72,8 @@ void* reader_thread(void* args) {
     while (readline(fd, input) >= 1) {
         std::cout << "Received: " << input << endl;
         std::cout.flush();
-
-        /* sample of how to handle communication */
-        /* if asked to play on (5,5) (first round), play block 'a' without rotation */
-        if(!input.compare("25")) {
-            writeline(fd, "55t0");
-        }
+		
+		make_move(input);
     }
 
     cout << "Reader thread shutting down..." << endl;
@@ -135,6 +145,11 @@ int main(int argc, char** argv) {
     cfsetispeed(&newtio, BAUDRATE);
     cfsetospeed(&newtio, BAUDRATE);
     tcsetattr(fd, TCSANOW, &newtio);
+	
+	/* initialize board memory */
+	for(int x = 0; x < 14; x++)
+		for(int y = 0; y < 14; y++)
+			board[x][y] = 0;
 
     /* negociation stage */
     if(mode == "master") {
@@ -160,6 +175,8 @@ int main(int argc, char** argv) {
         write(fd, &c, 1);
     }
 
+	cin >> c;
     close(fd);
     return 0;
 }
+
