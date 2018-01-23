@@ -251,7 +251,8 @@ void make_move(int fd, string input) {
 		int piece = input[3] - 'a';
 		int rotation = input[4] - '0';
 		
-		place_move_in_board(piece, rotation, x, y, 2);
+		if(input.compare("40000"))
+			place_move_in_board(piece, rotation, x, y, 2);
 
 		string to_send = find_first_move();
 		writeline(fd, to_send);
